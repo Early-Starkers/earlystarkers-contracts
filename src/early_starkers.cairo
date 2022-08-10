@@ -5,7 +5,8 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.uint256 import (
+    Uint256, uint256_unsigned_div_rem, uint256_mul) 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.math import assert_le, assert_lt
@@ -19,12 +20,18 @@ from openzeppelin.token.erc20.IERC20 import IERC20
 
 from src.merkle import merkle_verify
 
+const ERC2981_ID = 0x2a55205a
 const MAX_SUPPLY  = 1234
 const TEAM_SUPPLY = 34
 const MAX_WL_MINT = 1
 const MAX_PUBLIC_MINT = 5
-const MERKLE_ROOT = 0xdeafbeef # TODO: Update
-const ETH_ADDRESS = 0xdeadbeef # TODO: Update
+const TOTAL_WL_AMOUNT = 200
+
+#################################TESTNET CONFIG#################################
+
+const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7 
+
+#################################TESTNET CONFIG#################################
 
 ## @notice Stores last minted ID
 @storage_var
@@ -70,6 +77,16 @@ end
 func _wl_mints(account: felt) -> (mints: felt):
 end
 
+## @notice Total whitelisted mints
+@storage_var
+func _total_wl_mints() -> (mints: felt):
+end
+
+## @notice Stores whitelist root
+@storage_var
+func _wl_root() -> (root: felt):
+end
+
 ## @notice Stores if public mints are active
 @storage_var
 func _public_mint_active() -> (active: felt):
@@ -85,6 +102,11 @@ end
 func _public_mints(account: felt) -> (mints: felt):
 end
 
+## @notice Owner royalty
+@storage_var
+func _owner_royalty() -> (royalty):
+end
+
 ## @param owner: Contract owner
 ## @param team_receiver: The address that'll receive the team tokens
 @constructor
@@ -94,6 +116,7 @@ func constructor{
     range_check_ptr
 }(owner: felt, team_receiver: felt):
     ERC721.initializer('Early Starkers', 'ESTARK')
+    ERC165.register_interface(ERC2981_ID)
     Ownable.initializer(owner)
 
     # Mint team supply
@@ -309,6 +332,43 @@ func _read_links{
     return ()
 end
 
+# ERC2981: NFT Royalties
+
+## @notice Returns royalty info
+## @dev Royalty is owner_royalty% of the salePrice to the owner
+@view
+func royaltyInfo{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+}(
+    _tokenId: Uint256,
+    salePrice: Uint256
+) -> (
+    receiver: felt,
+    royaltyAmount: Uint256
+):
+    alloc_locals
+    let (owner: felt) = Ownable.owner()
+    let (owner_royalty: felt) = _owner_royalty.read()
+
+    # Royalty = Sale Price * Owner Royalty / 100
+    let (
+        local sale_price_ext: Uint256,
+        local sale_price_of: Uint256
+    ) = uint256_mul(salePrice, Uint256(owner_royalty, 0))
+
+    let (
+        local royalty_amount: Uint256, 
+        _rem: Uint256
+    ) = uint256_unsigned_div_rem(sale_price_ext, Uint256(100, 0))
+
+    # Multiplication mustn't overflow
+    assert sale_price_of = Uint256(0,0)
+
+    return (receiver=owner, royaltyAmount=royalty_amount)
+end
+
 ## External
 ################################################################################
 
@@ -384,8 +444,9 @@ func wl_mint{
 
     # Check for merkle proof
     with_attr error_message("Invalid proof"):
+        let (wl_root: felt) = _wl_root.read()
         let (proof_valid: felt) = merkle_verify(
-            leaf, MERKLE_ROOT, proof_len, proof)
+            leaf, wl_root, proof_len, proof)
         assert proof_valid = TRUE
     end
 
@@ -395,6 +456,13 @@ func wl_mint{
         assert_le(prev_mints+amount, MAX_WL_MINT)
     end
     _wl_mints.write(caller, prev_mints+amount)
+
+    # Check for total wl amount
+    let (total_wl_mints: felt) = _total_wl_mints.read()
+    with_attr error_message("All NFTs that were allocated for wl period has been minted"):
+        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
+    end
+    _total_wl_mints.write(total_wl_mints + amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
@@ -655,6 +723,37 @@ func change_name_price{
     return()
 end
 
+## @notice Changes whitelist root
+## @dev onlyOwner
+@external
+func change_wl_root{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(new_root: felt):
+    Ownable.assert_only_owner()
+
+    _wl_root.write(new_root)
+    return()
+end
+
+## @notice Sets owner royalty
+## @dev onlyOwner
+@external
+func set_owner_royalty{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(new_royalty: felt):
+    Ownable.assert_only_owner()
+    with_attr error_message("Royalties are in range of [0,100](%)"):
+        assert_lt(new_royalty, 100)
+    end
+
+    _owner_royalty.write(new_royalty)
+    return()
+end
+
 ## @notice Function for team to withdraw funds
 ## @dev onlyOwner
 @external
@@ -682,7 +781,6 @@ func withdraw{
 
     return ()
 end
-
 
 ## Helpers
 ################################################################################

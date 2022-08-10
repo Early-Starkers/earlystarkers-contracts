@@ -368,6 +368,31 @@
     {
         "inputs": [
             {
+                "name": "_tokenId",
+                "type": "Uint256"
+            },
+            {
+                "name": "salePrice",
+                "type": "Uint256"
+            }
+        ],
+        "name": "royaltyInfo",
+        "outputs": [
+            {
+                "name": "receiver",
+                "type": "felt"
+            },
+            {
+                "name": "royaltyAmount",
+                "type": "Uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
                 "name": "to",
                 "type": "felt"
             },
@@ -573,6 +598,28 @@
             }
         ],
         "name": "change_name_price",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_root",
+                "type": "felt"
+            }
+        ],
+        "name": "change_wl_root",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_royalty",
+                "type": "felt"
+            }
+        ],
+        "name": "set_owner_royalty",
         "outputs": [],
         "type": "function"
     },
