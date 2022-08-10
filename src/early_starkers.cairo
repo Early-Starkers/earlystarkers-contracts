@@ -506,8 +506,8 @@ func public_mint{
 
     # Check for whitelist period
     with_attr error_message("Public mint period not active"):
-        let (wl_active: felt) = _public_mint_active.read()
-        assert wl_active = TRUE
+        let (public_active: felt) = _public_mint_active.read()
+        assert public_active = TRUE
     end
 
     # Check for maximum public mint per user
