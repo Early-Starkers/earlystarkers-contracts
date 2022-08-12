@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 ## @title Early Starkers
 ## @author zetsub0ii.eth
+## @co-author hikmo
 
 %lang starknet
 
@@ -24,7 +25,7 @@ const ERC2981_ID = 0x2a55205a
 const MAX_SUPPLY  = 1234
 const TEAM_SUPPLY = 34
 const MAX_WL_MINT = 1
-const MAX_PUBLIC_MINT = 5
+const MAX_PUBLIC_MINT = 1
 const TOTAL_WL_AMOUNT = 200
 
 #################################TESTNET CONFIG#################################
@@ -49,12 +50,22 @@ end
 
 ## @notice Storage for links
 @storage_var
-func _links(id: Uint256, offset: felt) -> (short_str: felt):
+func _galactic_talks_links(id: Uint256, offset: felt) -> (short_str: felt):
 end
 
 ## @notice Stores links lengths
 @storage_var
-func _link_lens(id: Uint256) -> (short_str: felt):
+func _galactic_talks_link_lens(id: Uint256) -> (short_str: felt):
+end
+
+## @notice Storage for links
+@storage_var
+func _star_wall_links(id: Uint256, offset: felt) -> (short_str: felt):
+end
+
+## @notice Stores links lengths
+@storage_var
+func _star_wall_link_lens(id: Uint256) -> (short_str: felt):
 end
 
 ## @notice Price to change name
@@ -106,6 +117,12 @@ end
 @storage_var
 func _owner_royalty() -> (royalty):
 end
+
+## @notice Is burning active
+@storage_var
+func _is_burn_active() -> (res : felt):
+end
+
 
 ## @param owner: Contract owner
 ## @param team_receiver: The address that'll receive the team tokens
@@ -297,22 +314,22 @@ func name_of{
 end
 
 @view
-func links_of{
+func star_wall_links_of{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
 }(id: Uint256) -> (links_len: felt, links: felt*):
     alloc_locals
     let (links: felt*) = alloc()
-    let (local max_len: felt) = _link_lens.read(id)
+    let (local max_len: felt) = _star_wall_link_lens.read(id)
 
     # Start from idx 0 and fill the links
-    _read_links{id=id, links_len=max_len, links=links}(0)
+    _read_star_wall_links{id=id, links_len=max_len, links=links}(0)
     
     return (links_len=max_len, links=links)
 end
 
-func _read_links{
+func _read_star_wall_links{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr,
@@ -324,10 +341,46 @@ func _read_links{
         return ()
     end
     
-    let (next_short_str: felt) = _links.read(id, idx)
+    let (next_short_str: felt) = _star_wall_links.read(id, idx)
     assert [links + idx] = next_short_str
 
-    _read_links(idx+1)
+    _read_star_wall_links(idx+1)
+
+    return ()
+end
+
+@view
+func galactic_talks_links_of{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(id: Uint256) -> (links_len: felt, links: felt*):
+    alloc_locals
+    let (links: felt*) = alloc()
+    let (local max_len: felt) = _galactic_talks_link_lens.read(id)
+
+    # Start from idx 0 and fill the links
+    _read_galactic_talks_links{id=id, links_len=max_len, links=links}(0)
+    
+    return (links_len=max_len, links=links)
+end
+
+func _read_galactic_talks_links{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+    id: Uint256,
+    links_len: felt,
+    links: felt*,
+}(idx: felt):
+    if idx == links_len:
+        return ()
+    end
+    
+    let (next_short_str: felt) = _galactic_talks_links.read(id, idx)
+    assert [links + idx] = next_short_str
+
+    _read_star_wall_links(idx+1)
 
     return ()
 end
@@ -585,7 +638,7 @@ end
 ## @dev new_links must be split on the frontend, best way would be to use
 ##      the website
 @external
-func change_links{
+func change_star_wall_links{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
@@ -597,13 +650,13 @@ func change_links{
         assert owner_of_id = caller
     end
 
-    _write_links{id=id, links_len=new_links_len, links=new_links}(0)
-    _link_lens.write(id, new_links_len)
+    _write_star_wall_links{id=id, links_len=new_links_len, links=new_links}(0)
+    _star_wall_link_lens.write(id, new_links_len)
 
     return ()
 end
 
-func _write_links{
+func _write_star_wall_links{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr,
@@ -615,13 +668,72 @@ func _write_links{
         return ()
     end
 
-    _links.write(id, idx, links[idx]) 
+    _star_wall_links.write(id, idx, links[idx]) 
 
-    return _write_links(idx+1)
+    return _write_star_wall_links(idx+1)
+end
+
+@external
+func change_galactic_talks_links{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(id: Uint256, new_links_len: felt, new_links: felt*):
+    let (caller: felt) = get_caller_address()
+
+    let (owner_of_id: felt) = ERC721.owner_of(id)
+    with_attr error_message("Not the owner of token"):
+        assert owner_of_id = caller
+    end
+
+    _write_galactic_talks_links{id=id, links_len=new_links_len, links=new_links}(0)
+    _galactic_talks_link_lens.write(id, new_links_len)
+
+    return ()
+end
+
+func _write_galactic_talks_links{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+    id: Uint256,
+    links_len: felt,
+    links: felt*
+}(idx: felt):
+    if idx == links_len:
+        return ()
+    end
+
+    _galactic_talks_links.write(id, idx, links[idx]) 
+
+    return _write_galactic_talks_links(idx+1)
+end
+
+@external
+func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    tokenId: Uint256
+):
+    # Check for whitelist period
+    with_attr error_message("Burning is not activated"):
+        let (burn_active: felt) = _is_burn_active.read()
+        assert burn_active = TRUE
+    end
+    ERC721.assert_only_token_owner(tokenId)
+    ERC721._burn(tokenId)
+    return ()  
 end
 
 ## Owner Functions
 ################################################################################
+
+## @notice Enable burning
+## @dev onlyOwner
+
+@external
+func enableBurn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    _is_burn_active.write(1) # errors when writing True
+    return()
+end
 
 ## @notice Start whitelist minting 
 ## @dev onlyOwner
@@ -781,6 +893,7 @@ func withdraw{
 
     return ()
 end
+
 
 ## Helpers
 ################################################################################
