@@ -385,6 +385,16 @@ func _read_galactic_talks_links{
     return ()
 end
 
+@view
+func get_last_id{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}() -> (last_id: felt):
+    let (last_id: felt) = _last_id.read()
+    return(last_id)
+end
+
 # ERC2981: NFT Royalties
 
 ## @notice Returns royalty info

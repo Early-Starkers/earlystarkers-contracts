@@ -387,6 +387,18 @@
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "get_last_id",
+        "outputs": [
+            {
+                "name": "last_id",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "name": "_tokenId",
