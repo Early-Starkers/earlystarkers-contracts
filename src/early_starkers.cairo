@@ -135,6 +135,7 @@ func constructor{
     ERC721.initializer('Early Starkers', 'ESTARK')
     ERC165.register_interface(ERC2981_ID)
     Ownable.initializer(owner)
+    _last_id.write(1)
 
     # Mint team supply
     tempvar end_id: felt = TEAM_SUPPLY
