@@ -27,6 +27,7 @@ const TEAM_SUPPLY = 34
 const MAX_WL_MINT = 1
 const MAX_PUBLIC_MINT = 1
 const TOTAL_WL_AMOUNT = 200
+const START_ID = 1
 
 #################################TESTNET CONFIG#################################
 
@@ -135,15 +136,14 @@ func constructor{
     ERC721.initializer('Early Starkers', 'ESTARK')
     ERC165.register_interface(ERC2981_ID)
     Ownable.initializer(owner)
-    _last_id.write(1)
 
     # Mint team supply
     tempvar end_id: felt = TEAM_SUPPLY
     _mint{
         receiver=team_receiver, 
         end_id=end_id
-    }(0)
-    _last_id.write(TEAM_SUPPLY)
+    }(START_ID)
+    _last_id.write(TEAM_SUPPLY + START_ID)
     return ()
 end
 
@@ -524,14 +524,14 @@ func wl_mint{
     # Check for total wl amount
     let (total_wl_mints: felt) = _total_wl_mints.read()
     with_attr error_message("All NFTs that were allocated for wl period has been minted"):
-        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
+        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT + START_ID)
     end
     _total_wl_mints.write(total_wl_mints + amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY)
+        assert_le(last_id + amount, MAX_SUPPLY + START_ID)
     end
     
     # Take mint fee
@@ -584,7 +584,7 @@ func public_mint{
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY)
+        assert_le(last_id + amount, MAX_SUPPLY + START_ID)
     end
     
     # Take mint fee
