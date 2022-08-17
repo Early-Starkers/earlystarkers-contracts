@@ -10,7 +10,7 @@ from starkware.cairo.common.uint256 import (
     Uint256, uint256_unsigned_div_rem, uint256_mul) 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.cairo.common.math import assert_le, assert_lt
+from starkware.cairo.common.math import assert_le, assert_lt, assert_not_zero
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address)
 
@@ -145,6 +145,19 @@ func constructor{
     }(START_ID)
     _last_id.write(TEAM_SUPPLY + START_ID)
     return ()
+end
+
+## Events
+################################################################################
+
+@event
+func minted(
+    tokenId: Uint256, address: felt):
+end
+
+@event
+func named(
+    tokenId: Uint256, name: felt):
 end
 
 ## Getters
@@ -640,6 +653,7 @@ func change_name{
     )
 
     _names.write(id, new_name)
+    named.emit(tokenId=id,name=new_name)
     return ()
 end
 
@@ -695,6 +709,11 @@ func change_galactic_talks_links{
     let (owner_of_id: felt) = ERC721.owner_of(id)
     with_attr error_message("Not the owner of token"):
         assert owner_of_id = caller
+    end
+
+    let (prev_name: felt) = _names.read(id)
+    with_attr error_message("Naming is required for galactic talks"):
+        assert_not_zero(prev_name)
     end
 
     _write_galactic_talks_links{id=id, links_len=new_links_len, links=new_links}(0)
@@ -924,7 +943,7 @@ func _mint{
     let next_id: Uint256 = Uint256(start_id, 0)
     let empty_data: felt* = alloc()
     ERC721._safe_mint(receiver, next_id, 0, empty_data) 
-
+    minted.emit(tokenId=next_id, address=receiver)
     return _mint(start_id + 1)
 end
 
