@@ -104,6 +104,36 @@
         "type": "constructor"
     },
     {
+        "data": [
+            {
+                "name": "tokenId",
+                "type": "Uint256"
+            },
+            {
+                "name": "address",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "minted",
+        "type": "event"
+    },
+    {
+        "data": [
+            {
+                "name": "tokenId",
+                "type": "Uint256"
+            },
+            {
+                "name": "name",
+                "type": "felt"
+            }
+        ],
+        "keys": [],
+        "name": "named",
+        "type": "event"
+    },
+    {
         "inputs": [
             {
                 "name": "interfaceId",
@@ -351,7 +381,7 @@
                 "type": "Uint256"
             }
         ],
-        "name": "links_of",
+        "name": "star_wall_links_of",
         "outputs": [
             {
                 "name": "links_len",
@@ -360,6 +390,39 @@
             {
                 "name": "links",
                 "type": "felt*"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "id",
+                "type": "Uint256"
+            }
+        ],
+        "name": "galactic_talks_links_of",
+        "outputs": [
+            {
+                "name": "links_len",
+                "type": "felt"
+            },
+            {
+                "name": "links",
+                "type": "felt*"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "get_last_id",
+        "outputs": [
+            {
+                "name": "last_id",
+                "type": "felt"
             }
         ],
         "stateMutability": "view",
@@ -530,7 +593,43 @@
                 "type": "felt*"
             }
         ],
-        "name": "change_links",
+        "name": "change_star_wall_links",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "id",
+                "type": "Uint256"
+            },
+            {
+                "name": "new_links_len",
+                "type": "felt"
+            },
+            {
+                "name": "new_links",
+                "type": "felt*"
+            }
+        ],
+        "name": "change_galactic_talks_links",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "Uint256"
+            }
+        ],
+        "name": "burn",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "enableBurn",
         "outputs": [],
         "type": "function"
     },

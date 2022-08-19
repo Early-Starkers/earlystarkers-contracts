@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 ## @title Early Starkers
 ## @author zetsub0ii.eth
-## @co-author hikmo
+## @author hikmo
 
 %lang starknet
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.cairo.common.uint256 import (
     Uint256, uint256_unsigned_div_rem, uint256_mul) 
 from starkware.cairo.common.alloc import alloc
@@ -29,11 +29,11 @@ const MAX_PUBLIC_MINT = 1
 const TOTAL_WL_AMOUNT = 200
 const START_ID = 1
 
-#################################TESTNET CONFIG#################################
+################################ TESTNET CONFIG ################################
 
 const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7 
 
-#################################TESTNET CONFIG#################################
+################################ TESTNET CONFIG ################################
 
 ## @notice Stores last minted ID
 @storage_var
@@ -49,24 +49,12 @@ end
 ##      we store them in a (offset -> str) mapping and have an another mapping
 ##      for the lengths
 
-## @notice Storage for links
 @storage_var
-func _galactic_talks_links(id: Uint256, offset: felt) -> (short_str: felt):
+func _strings(tag: felt, id: felt, offset: felt) -> (short_str: felt):
 end
 
-## @notice Stores links lengths
 @storage_var
-func _galactic_talks_link_lens(id: Uint256) -> (short_str: felt):
-end
-
-## @notice Storage for links
-@storage_var
-func _star_wall_links(id: Uint256, offset: felt) -> (short_str: felt):
-end
-
-## @notice Stores links lengths
-@storage_var
-func _star_wall_link_lens(id: Uint256) -> (short_str: felt):
+func _string_lens(tag: felt, id: felt) -> (length: felt):
 end
 
 ## @notice Price to change name
@@ -124,6 +112,8 @@ end
 func _is_burn_active() -> (res : felt):
 end
 
+## Constructor
+################################################################################
 
 ## @param owner: Contract owner
 ## @param team_receiver: The address that'll receive the team tokens
@@ -333,34 +323,8 @@ func star_wall_links_of{
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
 }(id: Uint256) -> (links_len: felt, links: felt*):
-    alloc_locals
-    let (links: felt*) = alloc()
-    let (local max_len: felt) = _star_wall_link_lens.read(id)
-
-    # Start from idx 0 and fill the links
-    _read_star_wall_links{id=id, links_len=max_len, links=links}(0)
-    
-    return (links_len=max_len, links=links)
-end
-
-func _read_star_wall_links{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-    id: Uint256,
-    links_len: felt,
-    links: felt*,
-}(idx: felt):
-    if idx == links_len:
-        return ()
-    end
-    
-    let (next_short_str: felt) = _star_wall_links.read(id, idx)
-    assert [links + idx] = next_short_str
-
-    _read_star_wall_links(idx+1)
-
-    return ()
+    let (links_len: felt, links: felt*) = _read_string('star_wall', id)
+    return (links_len, links)
 end
 
 @view
@@ -369,34 +333,8 @@ func galactic_talks_links_of{
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
 }(id: Uint256) -> (links_len: felt, links: felt*):
-    alloc_locals
-    let (links: felt*) = alloc()
-    let (local max_len: felt) = _galactic_talks_link_lens.read(id)
-
-    # Start from idx 0 and fill the links
-    _read_galactic_talks_links{id=id, links_len=max_len, links=links}(0)
-    
-    return (links_len=max_len, links=links)
-end
-
-func _read_galactic_talks_links{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-    id: Uint256,
-    links_len: felt,
-    links: felt*,
-}(idx: felt):
-    if idx == links_len:
-        return ()
-    end
-    
-    let (next_short_str: felt) = _galactic_talks_links.read(id, idx)
-    assert [links + idx] = next_short_str
-
-    _read_star_wall_links(idx+1)
-
-    return ()
+    let (links_len: felt, links: felt*) = _read_string('galactic_talks', id)    
+    return (links_len, links)
 end
 
 @view
@@ -675,27 +613,8 @@ func change_star_wall_links{
         assert owner_of_id = caller
     end
 
-    _write_star_wall_links{id=id, links_len=new_links_len, links=new_links}(0)
-    _star_wall_link_lens.write(id, new_links_len)
-
+    _write_string(tag='star_wall', id=id, str_len=new_links_len, str=new_links)
     return ()
-end
-
-func _write_star_wall_links{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-    id: Uint256,
-    links_len: felt,
-    links: felt*
-}(idx: felt):
-    if idx == links_len:
-        return ()
-    end
-
-    _star_wall_links.write(id, idx, links[idx]) 
-
-    return _write_star_wall_links(idx+1)
 end
 
 @external
@@ -716,27 +635,8 @@ func change_galactic_talks_links{
         assert_not_zero(prev_name)
     end
 
-    _write_galactic_talks_links{id=id, links_len=new_links_len, links=new_links}(0)
-    _galactic_talks_link_lens.write(id, new_links_len)
-
+    _write_string(tag='galactic_talks', id=id, str_len=new_links_len, str=new_links)
     return ()
-end
-
-func _write_galactic_talks_links{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-    id: Uint256,
-    links_len: felt,
-    links: felt*
-}(idx: felt):
-    if idx == links_len:
-        return ()
-    end
-
-    _galactic_talks_links.write(id, idx, links[idx]) 
-
-    return _write_galactic_talks_links(idx+1)
 end
 
 @external
@@ -761,8 +661,8 @@ end
 
 @external
 func enableBurn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    _is_burn_active.write(1) # errors when writing True
-    return()
+    _is_burn_active.write(TRUE)
+    return ()
 end
 
 ## @notice Start whitelist minting 
@@ -928,7 +828,7 @@ end
 ## Helpers
 ################################################################################
 
-## @dev Mints tokens between [start_id, end_id) 
+## @dev Mints tokens between [start_id, end_id) to receiver
 func _mint{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
@@ -947,3 +847,94 @@ func _mint{
     return _mint(start_id + 1)
 end
 
+## @dev Helper function to read a string from storage
+## @dev Starting from 0, reads each offset from _strings[tag][id_low] and concats them
+## @param tag:  Tag of the string (star_wall_link / galactic_talks_link / ...)
+## @param id:   Token ID
+func _read_string{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+}(tag: felt, id: Uint256) -> (str_len: felt, str: felt*):
+    alloc_locals
+    let (local str: felt*) = alloc()
+    let (local str_len: felt) = _string_lens.read(tag, id.low)
+
+    tempvar id_low: felt = id.low
+    __read_string{
+        tag=tag,
+        id_low=id_low,
+        str_len=str_len,
+        str=str
+    }(0)
+
+    return (str_len, str)
+end
+
+## @implicit_param tag:     Tag of the string (star_wall_link / galactic_talks_link / ...)
+## @implicit_param id_low:  Low part of the Uint256 id
+## @implicit_param str_len: Length of the string
+## @implicit_param str:     String
+## @param offset:           Where to start reading (must be 0)
+func __read_string{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+    tag: felt,
+    id_low: felt,
+    str_len: felt,
+    str: felt*
+}(offset: felt):
+    if offset == str_len:
+        return ()
+    end
+
+    let (next_short_str: felt) = _strings.read(tag, id_low, offset)
+    assert [str + offset] = next_short_str
+
+    return __read_string(offset+1)
+end
+
+## @dev Helper function to write a string to the storage
+## @param tag:      Tag of the string (star_wall_link / galactic_talks_link / ...)
+## @param id:       Token ID 
+## @param str_len:  Length of the string
+## @param str:      String
+func _write_string{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+}(tag: felt, id: Uint256, str_len: felt, str: felt*):
+    tempvar id_low: felt = id.low
+    __write_string{
+        tag = tag,
+        id_low = id_low,
+        str_len = str_len,
+        str = str
+    }(0)
+
+    _string_lens.write(tag, id.low, str_len)
+    return()
+end
+
+## @implicit_param tag:     Tag of the string (star_wall / galactic_talks / ...)
+## @implicit_param id_low:  Low part of the Uint256 id
+## @implicit_param str_len: Length of the string
+## @implicit_param str:     String
+## @param offset:           Where to start reading (must be 0)
+func __write_string{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+    tag: felt,
+    id_low: felt,
+    str_len: felt,
+    str: felt*
+}(offset: felt):
+    if offset == str_len:
+        return ()
+    end
+
+    _strings.write(tag, id_low, offset, [str+offset])
+    return __write_string(offset=offset+1)
+end

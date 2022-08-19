@@ -5,9 +5,5 @@ protostar_version = "0.3.0"
 libs_path = "lib"
 
 ["protostar.contracts"]
-early_starkers = [
-    "src/early_starkers.cairo"
-]
-merkle = [
-    "src/merkle.cairo"
-]
+early_starkers = [ "src/early_starkers.cairo" ]
+merkle = [ "src/merkle.cairo" ]
