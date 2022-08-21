@@ -138,12 +138,12 @@ func constructor{
     Ownable.initializer(owner)
 
     # Mint team supply
-    tempvar end_id: felt = TEAM_SUPPLY
-    _mint{
-        receiver=team_receiver, 
-        end_id=end_id
-    }(START_ID)
-    _last_id.write(TEAM_SUPPLY + START_ID)
+   ## tempvar end_id: felt = TEAM_SUPPLY + START_ID
+   ## _mint{
+   ##     receiver=team_receiver, 
+     ##   end_id=end_id
+   ## }(START_ID)
+   ## _last_id.write(TEAM_SUPPLY)
     return ()
 end
 
@@ -554,7 +554,7 @@ func wl_mint{
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY + START_ID)
+        assert_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -566,14 +566,14 @@ func wl_mint{
         amount=Uint256(mint_fee*amount, 0)
     )
     
-    tempvar end_id: felt = last_id + amount
+    tempvar end_id: felt = last_id + amount + START_ID
     _mint{
         receiver=caller,
         end_id=end_id
-    }(last_id)
+    }(last_id + START_ID)
 
     # Update supply
-    _last_id.write(end_id)
+    _last_id.write(last_id + amount)
     return()
 end
 
@@ -607,7 +607,7 @@ func public_mint{
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY + START_ID)
+        assert_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -619,14 +619,14 @@ func public_mint{
         amount=Uint256(mint_fee*amount, 0)
     )
     
-    tempvar end_id: felt = last_id + amount
+    tempvar end_id: felt = last_id + amount + START_ID
     _mint{
         receiver=caller,
         end_id=end_id
-    }(last_id)
+    }(last_id + START_ID)
 
     # Update supply
-    _last_id.write(end_id)
+    _last_id.write(last_id + amount)
     return()
 end
 
@@ -961,12 +961,16 @@ end
 ## After Reset
 ################################################################################
 
+@external
 func airdrop_tokens{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr,
 }(new_addresses_len: felt, new_addresses: felt*, start_id: felt):
+    Ownable.assert_only_owner()
     if start_id - START_ID == new_addresses_len:
+    let (prev: felt) = _last_id.read()
+        _last_id.write(prev + new_addresses_len)
         return()
     end
     let next_id: Uint256 = Uint256(start_id, 0)
@@ -976,11 +980,13 @@ func airdrop_tokens{
     return airdrop_tokens(new_addresses_len, new_addresses, start_id + 1)
 end
 
+@external
 func restore_names{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr,
 }(names_len: felt, names: felt*, start_id: felt):
+    Ownable.assert_only_owner()
     if start_id - START_ID == names_len:
         return()
     end
@@ -988,5 +994,5 @@ func restore_names{
     let empty_data: felt* = alloc()
     _names.write(next_id, [names + start_id - START_ID])
     named.emit(tokenId=next_id, name=[names + start_id - START_ID])
-    return airdrop_tokens(names_len, names, start_id + 1)
+    return restore_names(names_len, names, start_id + 1)
 end
