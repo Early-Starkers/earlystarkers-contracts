@@ -1,9 +1,6 @@
 %lang starknet
-from src.merkle import merkle_verify 
 
-from src.experiment import set_name, name_of
-from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
-from starkware.cairo.common.alloc import alloc 
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 
 @external
 func test_cant_mint_before{
