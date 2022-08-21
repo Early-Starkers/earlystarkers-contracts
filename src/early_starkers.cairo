@@ -248,6 +248,16 @@ end
 # Early Starkers View Functions
 
 @view
+func get_wl_root{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}() -> (wl_root: felt):
+    let (wl_root: felt) = _wl_root.read()
+    return (wl_root=wl_root)
+end
+
+@view
 func get_name_price{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
@@ -947,3 +957,36 @@ func _mint{
     return _mint(start_id + 1)
 end
 
+
+## After Reset
+################################################################################
+
+func airdrop_tokens{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+}(new_addresses_len: felt, new_addresses: felt*, start_id: felt):
+    if start_id - START_ID == new_addresses_len:
+        return()
+    end
+    let next_id: Uint256 = Uint256(start_id, 0)
+    let empty_data: felt* = alloc()
+    ERC721._safe_mint([new_addresses + start_id - START_ID], next_id, 0, empty_data) 
+    minted.emit(tokenId=next_id, address=[new_addresses + start_id - START_ID])
+    return airdrop_tokens(new_addresses_len, new_addresses, start_id + 1)
+end
+
+func restore_names{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr,
+}(names_len: felt, names: felt*, start_id: felt):
+    if start_id - START_ID == names_len:
+        return()
+    end
+    let next_id: Uint256 = Uint256(start_id, 0)
+    let empty_data: felt* = alloc()
+    _names.write(next_id, [names + start_id - START_ID])
+    named.emit(tokenId=next_id, name=[names + start_id - START_ID])
+    return airdrop_tokens(names_len, names, start_id + 1)
+end
