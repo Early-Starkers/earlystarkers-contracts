@@ -1,9 +1,10 @@
 ["protostar.config"]
-protostar_version = "0.3.0"
+protostar_version = "0.3.2"
 
 ["protostar.project"]
 libs_path = "lib"
 
 ["protostar.contracts"]
 early_starkers = [ "src/early_starkers.cairo" ]
-merkle = [ "src/merkle.cairo" ]
+erc20m = [ "src/ERC20Mintable.cairo" ]
+account = [ "src/Account.cairo" ]

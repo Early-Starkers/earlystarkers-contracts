@@ -265,6 +265,18 @@
     },
     {
         "inputs": [],
+        "name": "get_wl_root",
+        "outputs": [
+            {
+                "name": "wl_root",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
         "name": "get_name_price",
         "outputs": [
             {
@@ -628,8 +640,19 @@
         "type": "function"
     },
     {
+        "inputs": [
+            {
+                "name": "a",
+                "type": "felt"
+            }
+        ],
+        "name": "__t_set_eth_addr",
+        "outputs": [],
+        "type": "function"
+    },
+    {
         "inputs": [],
-        "name": "enableBurn",
+        "name": "enable_burn",
         "outputs": [],
         "type": "function"
     },
@@ -725,6 +748,44 @@
     {
         "inputs": [],
         "name": "withdraw",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_addresses_len",
+                "type": "felt"
+            },
+            {
+                "name": "new_addresses",
+                "type": "felt*"
+            },
+            {
+                "name": "start_id",
+                "type": "felt"
+            }
+        ],
+        "name": "airdrop_tokens",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "names_len",
+                "type": "felt"
+            },
+            {
+                "name": "names",
+                "type": "felt*"
+            },
+            {
+                "name": "start_id",
+                "type": "felt"
+            }
+        ],
+        "name": "restore_names",
         "outputs": [],
         "type": "function"
     }

@@ -1,0 +1,1 @@
+0x00a382756888ce12d1e93d188b9d8c5cf71a477d57f203fd9f82b9739b1b5178:artifacts/abis/erc20m.json:erc20

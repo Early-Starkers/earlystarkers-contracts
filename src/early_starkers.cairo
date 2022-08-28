@@ -35,6 +35,10 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 
 ################################ TESTNET CONFIG ################################
 
+@storage_var
+func __t_eth_addr() -> (address):
+end
+
 ## @notice Stores last minted ID
 @storage_var
 func _last_id() -> (id: felt):
@@ -231,8 +235,16 @@ func tokenURI{
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
 }(tokenId: Uint256) -> (tokenURI: felt):
-    let (tokenURI) = ERC721.token_uri(tokenId)
-    return (tokenURI)
+    let (caller) = get_caller_address()
+    let (name) = _names.read(tokenId)
+
+    if name == 0:
+        let (tokenURI_no_name) = ERC721.token_uri(tokenId)
+        return (tokenURI_no_name)
+    else:
+        let (tokenURI_name) = ERC721.token_uri(Uint256(1234 + tokenId.low, 0))
+        return (tokenURI_name)
+    end
 end
 
 # Early Starkers View Functions
@@ -461,6 +473,10 @@ func wl_mint{
     let (local caller: felt) = get_caller_address()
     let (local this_address: felt) = get_contract_address()
 
+    with_attr error_message("Not the right caller"):
+        assert caller = leaf
+    end
+
     # Check for whitelist period
     with_attr error_message("Whitelist period not active"):
         let (wl_active: felt) = _wl_mint_active.read()
@@ -495,23 +511,30 @@ func wl_mint{
         assert_le(last_id + amount, MAX_SUPPLY)
     end
     
+    let(local t_eth) = __t_eth_addr.read()
     # Take mint fee
     let (mint_fee: felt) = _wl_mint_fee.read()
-    IERC20.transferFrom(
-        contract_address=ETH_ADDRESS,
+    let (success: felt) = IERC20.transferFrom(
+        # contract_address=ETH_ADDRESS,
+        contract_address=t_eth,
         sender=caller,
         recipient=this_address,
-        amount=Uint256(mint_fee*amount, 0)
+        amount=Uint256(1, 0)
     )
+    with_attr error_message("ERC20 transfer failed"):
+        assert success = 1
+    end
     
-    tempvar end_id: felt = last_id + amount + START_ID
+    local end_id: felt = last_id + amount + START_ID
+
+    # Update supply
+    _last_id.write(end_id)
+
     _mint{
         receiver=caller,
         end_id=end_id
     }(last_id + START_ID)
 
-    # Update supply
-    _last_id.write(last_id + amount)
     return()
 end
 
@@ -548,23 +571,30 @@ func public_mint{
         assert_le(last_id + amount, MAX_SUPPLY)
     end
     
+    let (local t_eth) = __t_eth_addr.read()
     # Take mint fee
     let (mint_fee: felt) = _public_mint_fee.read()
-    IERC20.transferFrom(
-        contract_address=ETH_ADDRESS,
+    let (success: felt) = IERC20.transferFrom(
+        # contract_address=ETH_ADDRESS,
+        contract_address=t_eth,
         sender=caller,
         recipient=this_address,
         amount=Uint256(mint_fee*amount, 0)
     )
+    with_attr error_message("ERC20 transfer failed"):
+        assert success = 1
+    end
     
-    tempvar end_id: felt = last_id + amount + START_ID
+    local end_id: felt = last_id + amount + START_ID
+
+    # Update supply
+    _last_id.write(end_id)
+
+    # Mint tokens
     _mint{
         receiver=caller,
         end_id=end_id
     }(last_id + START_ID)
-
-    # Update supply
-    _last_id.write(last_id + amount)
     return()
 end
 
@@ -591,10 +621,12 @@ func change_name{
         assert prev_name = 0
     end
 
+    let (local t_eth) = __t_eth_addr.read()
     # Get changing name price
     let (name_price: felt) = _name_price.read()
     IERC20.transferFrom(
-        contract_address=ETH_ADDRESS,
+        # contract_address=ETH_ADDRESS,
+        contract_address=t_eth,
         sender=caller,
         recipient=this_address,
         amount=Uint256(name_price, 0)
@@ -621,6 +653,11 @@ func change_star_wall_links{
     let (owner_of_id: felt) = ERC721.owner_of(id)
     with_attr error_message("Not the owner of token"):
         assert owner_of_id = caller
+    end
+
+    let (prev_name: felt) = _names.read(id)
+    with_attr error_message("Naming is required for star wall"):
+        assert_not_zero(prev_name)
     end
 
     _write_string(tag='star_wall', id=id, str_len=new_links_len, str=new_links)
@@ -666,11 +703,26 @@ end
 ## Owner Functions
 ################################################################################
 
+@external
+func __t_set_eth_addr{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(a: felt):
+    Ownable.assert_only_owner()
+    __t_eth_addr.write(a)
+    return ()
+end
+
 ## @notice Enable burning
 ## @dev onlyOwner
-
 @external
-func enableBurn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+func enable_burn{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}():
+    Ownable.assert_only_owner()
     _is_burn_active.write(TRUE)
     return ()
 end
@@ -817,15 +869,19 @@ func withdraw{
     alloc_locals
     Ownable.assert_only_owner()
 
+    let (local t_eth) = __t_eth_addr.read()
+
     let (local this_address: felt) = get_contract_address()
     let (local caller_address: felt) = get_caller_address()
     let (balance: Uint256) = IERC20.balanceOf(
-        contract_address=ETH_ADDRESS,
+        # contract_address=ETH_ADDRESS,
+        contract_address=t_eth,
         account=this_address)
 
     with_attr error_message("Transfer failed"):
         let (success: felt) = IERC20.transfer(
-            contract_address=ETH_ADDRESS,
+            # contract_address=ETH_ADDRESS,
+            contract_address=t_eth,
             recipient=caller_address,
             amount=balance)
         assert success = 1
@@ -851,8 +907,7 @@ func _mint{
     end
 
     let next_id: Uint256 = Uint256(start_id, 0)
-    let empty_data: felt* = alloc()
-    ERC721._safe_mint(receiver, next_id, 0, empty_data) 
+    ERC721._mint(receiver, next_id) 
     minted.emit(tokenId=next_id, address=receiver)
     return _mint(start_id + 1)
 end
@@ -965,8 +1020,7 @@ func airdrop_tokens{
         return()
     end
     let next_id: Uint256 = Uint256(start_id, 0)
-    let empty_data: felt* = alloc()
-    ERC721._safe_mint([new_addresses + start_id - START_ID], next_id, 0, empty_data) 
+    ERC721._mint([new_addresses + start_id - START_ID], next_id) 
     minted.emit(tokenId=next_id, address=[new_addresses + start_id - START_ID])
     return airdrop_tokens(new_addresses_len, new_addresses, start_id + 1)
 end
@@ -982,7 +1036,6 @@ func restore_names{
         return()
     end
     let next_id: Uint256 = Uint256(start_id, 0)
-    let empty_data: felt* = alloc()
     _names.write(next_id, [names + start_id - START_ID])
     named.emit(tokenId=next_id, name=[names + start_id - START_ID])
     return restore_names(names_len, names, start_id + 1)
