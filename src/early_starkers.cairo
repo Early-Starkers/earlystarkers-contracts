@@ -10,7 +10,8 @@ from starkware.cairo.common.uint256 import (
     Uint256, uint256_unsigned_div_rem, uint256_mul) 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
-from starkware.cairo.common.math import assert_le, assert_lt, assert_not_zero
+from starkware.cairo.common.math import (
+    assert_le, assert_lt, assert_not_zero, unsigned_div_rem)
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address)
 
@@ -38,6 +39,11 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 @storage_var
 func __t_eth_addr() -> (address):
 end
+
+@storage_var
+func _base_uri() -> (base_uri : felt):
+end
+
 
 ## @notice Stores last minted ID
 @storage_var
@@ -126,18 +132,20 @@ func constructor{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
     range_check_ptr
-}(owner: felt, team_receiver: felt):
+}(owner: felt, team_receiver: felt, base_uri: felt):
     ERC721.initializer('Early Starkers', 'ESTARK')
     ERC165.register_interface(ERC2981_ID)
     Ownable.initializer(owner)
 
+    _base_uri.write(base_uri)
+
     # Mint team supply
-   ## tempvar end_id: felt = TEAM_SUPPLY + START_ID
-   ## _mint{
-   ##     receiver=team_receiver, 
-     ##   end_id=end_id
-   ## }(START_ID)
-   ## _last_id.write(TEAM_SUPPLY)
+    tempvar end_id: felt = TEAM_SUPPLY + START_ID
+    _mint{
+        receiver=team_receiver, 
+        end_id=end_id
+    }(START_ID)
+    _last_id.write(TEAM_SUPPLY)
     return ()
 end
 
@@ -230,6 +238,16 @@ func isApprovedForAll{
 end
 
 @view
+func baseURI{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}() -> (baseURI: felt):
+    let (base_uri: felt) = _base_uri.read()
+    return (baseURI=base_uri)
+end
+
+@view
 func tokenURI{
     syscall_ptr: felt*,
     pedersen_ptr: HashBuiltin*,
@@ -239,12 +257,40 @@ func tokenURI{
     let (name) = _names.read(tokenId)
 
     if name == 0:
-        let (tokenURI_no_name) = ERC721.token_uri(tokenId)
+        let (tokenURI_no_name) = _tokenURI(tokenId.low)
         return (tokenURI_no_name)
     else:
-        let (tokenURI_name) = ERC721.token_uri(Uint256(1234 + tokenId.low, 0))
+        let (tokenURI_name) = _tokenURI(1234 + tokenId.low)
         return (tokenURI_name)
     end
+end
+
+func _tokenURI{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(token_id: felt) -> (uri: felt):
+    let (base_uri: felt) = _base_uri.read()
+    # Offset base_uri like 'my_base_uri.com/00000000'
+    let base_uri_ext: felt = base_uri * 2**32
+
+    # if ID is 1234
+    let (t_div_1000, t_rem_1000) = unsigned_div_rem(token_id, 1000)
+    # 1 234
+    let (t_div_100, t_rem_100) = unsigned_div_rem(token_id, 100)
+    # 12 34
+    let (t_div_10, t_rem_10) = unsigned_div_rem(token_id, 10)
+    # 123 4
+
+    const ZERO_ASCII = 48
+    let d1 = ZERO_ASCII + t_div_1000
+    let d2 = ZERO_ASCII + (t_div_100 - t_div_1000 * 10) 
+    let d3 = ZERO_ASCII + (t_div_10 - t_div_100 * 10) 
+    let d4 = ZERO_ASCII + t_rem_10
+
+    # It should look like 'my_base_uri.com/d1d2d3d4' at the end
+    let uri = base_uri_ext + d4 + d3*2**8 + d2*2**16 + d1*2**24
+    return(uri=uri)
 end
 
 # Early Starkers View Functions
@@ -501,7 +547,7 @@ func wl_mint{
     # Check for total wl amount
     let (total_wl_mints: felt) = _total_wl_mints.read()
     with_attr error_message("All NFTs that were allocated for wl period has been minted"):
-        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT + START_ID)
+        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
     end
     _total_wl_mints.write(total_wl_mints + amount)
 
@@ -525,7 +571,7 @@ func wl_mint{
         assert success = 1
     end
     
-    local end_id: felt = last_id + amount + START_ID
+    local end_id: felt = last_id + amount 
 
     # Update supply
     _last_id.write(end_id)
@@ -533,7 +579,7 @@ func wl_mint{
     _mint{
         receiver=caller,
         end_id=end_id
-    }(last_id + START_ID)
+    }(last_id)
 
     return()
 end
@@ -585,7 +631,7 @@ func public_mint{
         assert success = 1
     end
     
-    local end_id: felt = last_id + amount + START_ID
+    local end_id: felt = last_id + amount 
 
     # Update supply
     _last_id.write(end_id)
@@ -594,7 +640,7 @@ func public_mint{
     _mint{
         receiver=caller,
         end_id=end_id
-    }(last_id + START_ID)
+    }(last_id)
     return()
 end
 
@@ -655,11 +701,6 @@ func change_star_wall_links{
         assert owner_of_id = caller
     end
 
-    let (prev_name: felt) = _names.read(id)
-    with_attr error_message("Naming is required for star wall"):
-        assert_not_zero(prev_name)
-    end
-
     _write_string(tag='star_wall', id=id, str_len=new_links_len, str=new_links)
     return ()
 end
@@ -711,6 +752,17 @@ func __t_set_eth_addr{
 }(a: felt):
     Ownable.assert_only_owner()
     __t_eth_addr.write(a)
+    return ()
+end
+
+@external
+func set_base_uri{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}(new_base_uri: felt):
+    Ownable.assert_only_owner()
+    _base_uri.write(new_base_uri)
     return ()
 end
 
