@@ -35,10 +35,6 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 
 ################################ TESTNET CONFIG ################################
 
-@storage_var
-func __t_eth_addr() -> (address):
-end
-
 ## @notice Stores last minted ID
 @storage_var
 func _last_id() -> (id: felt):
@@ -114,6 +110,11 @@ end
 ## @notice Is burning active
 @storage_var
 func _is_burn_active() -> (res : felt):
+end
+
+## @notice Is burning active
+@storage_var
+func _is_naming_active() -> (res : felt):
 end
 
 ## Constructor
@@ -511,12 +512,10 @@ func wl_mint{
         assert_le(last_id + amount, MAX_SUPPLY)
     end
     
-    let(local t_eth) = __t_eth_addr.read()
     # Take mint fee
     let (mint_fee: felt) = _wl_mint_fee.read()
     let (success: felt) = IERC20.transferFrom(
-        # contract_address=ETH_ADDRESS,
-        contract_address=t_eth,
+        contract_address=ETH_ADDRESS,
         sender=caller,
         recipient=this_address,
         amount=Uint256(1, 0)
@@ -571,12 +570,10 @@ func public_mint{
         assert_le(last_id + amount, MAX_SUPPLY)
     end
     
-    let (local t_eth) = __t_eth_addr.read()
     # Take mint fee
     let (mint_fee: felt) = _public_mint_fee.read()
     let (success: felt) = IERC20.transferFrom(
-        # contract_address=ETH_ADDRESS,
-        contract_address=t_eth,
+        contract_address=ETH_ADDRESS,
         sender=caller,
         recipient=this_address,
         amount=Uint256(mint_fee*amount, 0)
@@ -611,6 +608,11 @@ func change_name{
     let (local caller: felt) = get_caller_address()
     let (local this_address: felt) = get_contract_address()
 
+    with_attr error_message("Naming is not activated"):
+        let (naming_active: felt) = _is_naming_active.read()
+        assert naming_active = TRUE
+    end
+
     let (owner_of_id: felt) = ERC721.owner_of(id)
     with_attr error_message("Not the owner of token"):
         assert owner_of_id = caller
@@ -621,12 +623,10 @@ func change_name{
         assert prev_name = 0
     end
 
-    let (local t_eth) = __t_eth_addr.read()
     # Get changing name price
     let (name_price: felt) = _name_price.read()
     IERC20.transferFrom(
-        # contract_address=ETH_ADDRESS,
-        contract_address=t_eth,
+        contract_address=ETH_ADDRESS,
         sender=caller,
         recipient=this_address,
         amount=Uint256(name_price, 0)
@@ -690,7 +690,6 @@ end
 func burn{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     tokenId: Uint256
 ):
-    # Check for whitelist period
     with_attr error_message("Burning is not activated"):
         let (burn_active: felt) = _is_burn_active.read()
         assert burn_active = TRUE
@@ -703,17 +702,6 @@ end
 ## Owner Functions
 ################################################################################
 
-@external
-func __t_set_eth_addr{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr
-}(a: felt):
-    Ownable.assert_only_owner()
-    __t_eth_addr.write(a)
-    return ()
-end
-
 ## @notice Enable burning
 ## @dev onlyOwner
 @external
@@ -724,6 +712,17 @@ func enable_burn{
 }():
     Ownable.assert_only_owner()
     _is_burn_active.write(TRUE)
+    return ()
+end
+
+@external
+func enable_naming{
+    syscall_ptr: felt*,
+    pedersen_ptr: HashBuiltin*,
+    range_check_ptr
+}():
+    Ownable.assert_only_owner()
+    _is_naming_active.write(TRUE)
     return ()
 end
 
@@ -869,19 +868,15 @@ func withdraw{
     alloc_locals
     Ownable.assert_only_owner()
 
-    let (local t_eth) = __t_eth_addr.read()
-
     let (local this_address: felt) = get_contract_address()
     let (local caller_address: felt) = get_caller_address()
     let (balance: Uint256) = IERC20.balanceOf(
-        # contract_address=ETH_ADDRESS,
-        contract_address=t_eth,
+        contract_address=ETH_ADDRESS,
         account=this_address)
 
     with_attr error_message("Transfer failed"):
         let (success: felt) = IERC20.transfer(
-            # contract_address=ETH_ADDRESS,
-            contract_address=t_eth,
+            contract_address=ETH_ADDRESS,
             recipient=caller_address,
             amount=balance)
         assert success = 1
@@ -1014,9 +1009,9 @@ func airdrop_tokens{
     range_check_ptr,
 }(new_addresses_len: felt, new_addresses: felt*, start_id: felt):
     Ownable.assert_only_owner() # [start_id, start_id + new_adresses-len)
+    let (last_id: felt) = _last_id.read()
     if start_id - last_id == new_addresses_len:
-    let (prev: felt) = _last_id.read()
-        _last_id.write(prev + new_addresses_len)
+        _last_id.write(last_id + new_addresses_len)
         return()
     end
     let next_id: Uint256 = Uint256(start_id, 0)
