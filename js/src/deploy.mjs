@@ -60,7 +60,8 @@ async function main() {
     EARLY_STARKERS_ARTIFACT,
     [
       owner.address,
-      team.address
+      team.address,
+      strToFelt("earlystarkers.com/t/")
     ]
   );
 
@@ -79,8 +80,8 @@ async function main() {
   });
 
   await testPublicMint();
-  // await testName();
-  await testBurn();
+  await testName();
+  // await testBurn();
 }
 
 async function testPublicMint() {
@@ -154,6 +155,16 @@ async function testPublicMint() {
     calldata: [BigNumber.from(user2.address).toString()]
   })
   assertEq(BigNumber.from(nftBalanceResult[0]).toString(), 1)
+
+  const { result: nftOwnerResult } = await provider.callContract({
+    contractAddress: earlyStarkers.address,
+    entrypoint: "ownerOf",
+    calldata: ["35", "0"]
+  }) 
+  console.log({
+    owner: nftOwnerResult[0],
+    user2: user2.address
+  });
   console.log("public_mint Test - OK");
 }
 
@@ -259,7 +270,7 @@ async function testWhitelistMint() {
   const { result: ownerResult } = await provider.callContract({
     contractAddress: earlyStarkers.address,
     entrypoint: "ownerOf",
-    calldata: ["1", "0"]
+    calldata: ["35", "0"]
   });
   assertEq(ownerResult[0].toLowerCase(), user2.address.toLowerCase())
 }
@@ -269,23 +280,33 @@ async function testName() {
     await execute(provider, user1, {
       contractAddress: earlyStarkers.address,
       entrypoint: "change_name",
-      calldata: ["1", "0", strToFelt("Token Name")]
+      calldata: ["35", "0", strToFelt("Token Name")]
     })
-  }, "Shouldn't change unonwed token")
+  }, "Shouldn't change unowned token")
 
-  await expectRevert(async () => {
+  try {
     await execute(provider, user2, {
       contractAddress: earlyStarkers.address,
       entrypoint: "change_star_wall_links",
-      calldata: ["1", "0", "3", strToFelt("tw:zetsuboii"), strToFelt("gh:zetsuboii"), strToFelt("ens:zetsub0ii.eth")]
+      calldata: ["35", "0", "3",
+        strToFelt("tw:zetsuboii"),
+        strToFelt("gh:zetsuboii"),
+        strToFelt("ens:zetsub0ii.eth")]
     })
-  }, "Shouldn't change star wall before naming")
+  } catch (e) { console.log(e); }
+
+  const { result: beforeNameURI } = await provider.callContract({
+    contractAddress: earlyStarkers.address,
+    entrypoint: "tokenURI",
+    calldata: ["35", "0"]
+  })
+  console.log({ beforeNameURI: beforeNameURI[0] });
 
   await expectRevert(async () => {
     await execute(provider, user2, {
       contractAddress: earlyStarkers.address,
       entrypoint: "change_galactic_talks_links",
-      calldata: ["1", "0", "2", strToFelt("hey"), strToFelt("hi")]
+      calldata: ["35", "0", "2", strToFelt("hey"), strToFelt("hi")]
     })
   }, "Shouldn't change galactic talks before naming")
 
@@ -301,7 +322,7 @@ async function testName() {
     await execute(provider, user1, {
       contractAddress: earlyStarkers.address,
       entrypoint: "change_name",
-      calldata: ["1", "0", strToFelt("Token Name")]
+      calldata: ["35", "0", strToFelt("Token Name")]
     })
   }, "Shouldn't change name without paying fee")
 
@@ -323,14 +344,22 @@ async function testName() {
   await execute(provider, user2, {
     contractAddress: earlyStarkers.address,
     entrypoint: "change_name",
-    calldata: ["1", "0", strToFelt("Token Name")]
+    calldata: ["35", "0", strToFelt("Token Name")]
   })
   console.log("change_name - OK");
+
+  const { result: afterNameURI } = await provider.callContract({
+    contractAddress: earlyStarkers.address,
+    entrypoint: "tokenURI",
+    calldata: ["35", "0"]
+  })
+  console.log({ afterNameURI: afterNameURI[0] });
+
 
   const { result: erc20BalanceResult } = await provider.callContract({
     contractAddress: erc20.address,
     entrypoint: "balanceOf",
-    calldata: [ BigNumber.from(user2.address).toString() ]
+    calldata: [BigNumber.from(user2.address).toString()]
   })
   assertEq(BigNumber.from(erc20BalanceResult[0]).toString(), "0")
 
@@ -338,28 +367,28 @@ async function testName() {
     await execute(provider, user2, {
       contractAddress: earlyStarkers.address,
       entrypoint: "change_name",
-      calldata: ["1", "0", strToFelt("Token Name")]
+      calldata: ["35", "0", strToFelt("Token Name")]
     })
   }, "Shouldn't change name twice")
 
   const { result: nameResult } = await provider.callContract({
     contractAddress: earlyStarkers.address,
     entrypoint: "name_of",
-    calldata: ["1", "0"]
+    calldata: ["35", "0"]
   })
   assertEq(nameResult[0].toLowerCase(), strToFelt("Token Name").toLowerCase());
 
   await execute(provider, user2, {
     contractAddress: earlyStarkers.address,
     entrypoint: "change_star_wall_links",
-    calldata: ["1", "0", "3", strToFelt("tw:zetsuboii"), strToFelt("gh:zetsuboii"), strToFelt("ens:zetsub0ii.eth")]
+    calldata: ["35", "0", "3", strToFelt("tw:zetsuboii"), strToFelt("gh:zetsuboii"), strToFelt("ens:zetsub0ii.eth")]
   })
   console.log("change_star_wall_links - OK");
 
   const { result: stResult } = await provider.callContract({
     contractAddress: earlyStarkers.address,
     entrypoint: "star_wall_links_of",
-    calldata: ["1", "0"]
+    calldata: ["35", "0"]
   });
   assertEq(BigNumber.from(stResult[0]).toString(), "3")
   assertEq(stResult[1].toLowerCase(), strToFelt("tw:zetsuboii").toLowerCase())
@@ -369,14 +398,14 @@ async function testName() {
   await execute(provider, user2, {
     contractAddress: earlyStarkers.address,
     entrypoint: "change_galactic_talks_links",
-    calldata: ["1", "0", "2", strToFelt("hey"), strToFelt("hi")]
+    calldata: ["35", "0", "2", strToFelt("hey"), strToFelt("hi")]
   })
   console.log("change_galactic_talks_links - OK");
 
   const { result: gtResult } = await provider.callContract({
     contractAddress: earlyStarkers.address,
     entrypoint: "galactic_talks_links_of",
-    calldata: ["1", "0"]
+    calldata: ["35", "0"]
   });
   assertEq(BigNumber.from(gtResult[0]).toString(), "2")
   assertEq(gtResult[1].toLowerCase(), strToFelt("hey").toLowerCase())
@@ -390,7 +419,7 @@ async function testBurn() {
     await execute(provider, user2, {
       contractAddress: earlyStarkers.address,
       entrypoint: "burn",
-      calldata: ["1", "0"]
+      calldata: ["35", "0"]
     });
   }, "Shouldn't burn while burning is not activated")
 
@@ -404,7 +433,7 @@ async function testBurn() {
   await execute(provider, user2, {
     contractAddress: earlyStarkers.address,
     entrypoint: "burn",
-    calldata: ["1", "0"]
+    calldata: ["35", "0"]
   });
   console.log("burn - OK");
 

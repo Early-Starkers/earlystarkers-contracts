@@ -97,6 +97,10 @@
             {
                 "name": "team_receiver",
                 "type": "felt"
+            },
+            {
+                "name": "base_uri",
+                "type": "felt"
             }
         ],
         "name": "constructor",
@@ -240,6 +244,18 @@
         "outputs": [
             {
                 "name": "isApproved",
+                "type": "felt"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "baseURI",
+        "outputs": [
+            {
+                "name": "baseURI",
                 "type": "felt"
             }
         ],
@@ -647,6 +663,17 @@
             }
         ],
         "name": "__t_set_eth_addr",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "new_base_uri",
+                "type": "felt"
+            }
+        ],
+        "name": "set_base_uri",
         "outputs": [],
         "type": "function"
     },

@@ -3,6 +3,8 @@ SRC_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BUILD_PATH="$SRC_PATH/../build"
 SJS_ARTIFACTS_PATH="$SRC_PATH/artifacts"
 
+rm -rf $SJS_ARTIFACTS_PATH
+
 if [ ! -d $BUILD_PATH ]
 then
   printf "build/ folder doesn't exist, run:\n"
