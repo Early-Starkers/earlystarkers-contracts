@@ -145,7 +145,7 @@ func constructor{
         receiver=team_receiver, 
         end_id=end_id
     }(START_ID)
-    _last_id.write(TEAM_SUPPLY)
+    _last_id.write(TEAM_SUPPLY + START_ID)
     return ()
 end
 
@@ -571,7 +571,7 @@ func wl_mint{
         assert success = 1
     end
     
-    local end_id: felt = last_id + amount 
+    local end_id: felt = last_id + amount
 
     # Update supply
     _last_id.write(end_id)
@@ -631,7 +631,7 @@ func public_mint{
         assert success = 1
     end
     
-    local end_id: felt = last_id + amount 
+    local end_id: felt = last_id + amount
 
     # Update supply
     _last_id.write(end_id)
@@ -1065,15 +1065,15 @@ func airdrop_tokens{
     pedersen_ptr: HashBuiltin*,
     range_check_ptr,
 }(new_addresses_len: felt, new_addresses: felt*, start_id: felt):
-    Ownable.assert_only_owner()
-    if start_id - START_ID == new_addresses_len:
+    Ownable.assert_only_owner() # [start_id, start_id + new_adresses-len)
+    if start_id - last_id == new_addresses_len:
     let (prev: felt) = _last_id.read()
         _last_id.write(prev + new_addresses_len)
         return()
     end
     let next_id: Uint256 = Uint256(start_id, 0)
-    ERC721._mint([new_addresses + start_id - START_ID], next_id) 
-    minted.emit(tokenId=next_id, address=[new_addresses + start_id - START_ID])
+    ERC721._mint([new_addresses + start_id - last_id], next_id) 
+    minted.emit(tokenId=next_id, address=[new_addresses + start_id - last_id])
     return airdrop_tokens(new_addresses_len, new_addresses, start_id + 1)
 end
 
