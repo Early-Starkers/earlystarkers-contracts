@@ -11,7 +11,7 @@ from starkware.cairo.common.uint256 import (
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.math import (
-    assert_le, assert_lt, assert_not_zero, unsigned_div_rem)
+    assert_nn_le, assert_not_zero, unsigned_div_rem)
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address)
 
@@ -541,21 +541,21 @@ func wl_mint{
     # Check for maximum whitelist mint per user
     let (prev_mints: felt) = _wl_mints.read(caller)
     with_attr error_message("Amount exceeds max whitelist mint amount"):
-        assert_le(prev_mints+amount, MAX_WL_MINT)
+        assert_nn_le(prev_mints+amount, MAX_WL_MINT)
     end
     _wl_mints.write(caller, prev_mints+amount)
 
     # Check for total wl amount
     let (total_wl_mints: felt) = _total_wl_mints.read()
     with_attr error_message("All NFTs that were allocated for wl period has been minted"):
-        assert_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
+        assert_nn_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
     end
     _total_wl_mints.write(total_wl_mints + amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY)
+        assert_nn_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -606,14 +606,14 @@ func public_mint{
     # Check for maximum public mint per user
     let (prev_mints: felt) = _public_mints.read(caller)
     with_attr error_message("Amount exceeds max public mint amount"):
-        assert_le(prev_mints+amount, MAX_PUBLIC_MINT)
+        assert_nn_le(prev_mints+amount, MAX_PUBLIC_MINT)
     end
     _public_mints.write(caller, prev_mints+amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_le(last_id + amount, MAX_SUPPLY)
+        assert_nn_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -902,7 +902,7 @@ func set_owner_royalty{
 }(new_royalty: felt):
     Ownable.assert_only_owner()
     with_attr error_message("Royalties are in range of [0,100](%)"):
-        assert_lt(new_royalty, 100)
+        assert_nn_le(new_royalty, 99)
     end
 
     _owner_royalty.write(new_royalty)
