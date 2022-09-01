@@ -7,7 +7,7 @@
 
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_unsigned_div_rem, uint256_mul) 
+    Uint256, uint256_unsigned_div_rem, uint256_mul, uint256_le, uint256_check) 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.math import (
@@ -15,6 +15,7 @@ from starkware.cairo.common.math import (
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address)
 
+from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc721.library import ERC721
 from openzeppelin.introspection.erc165.library import ERC165
 from openzeppelin.access.ownable.library import Ownable
@@ -538,24 +539,44 @@ func wl_mint{
         assert proof_valid = TRUE
     end
 
+    # We're going with the safest route which is wrapping amount in Uint256
+    # and using OZ SafeMath for Uint256
+    let (local amount_uint256) = Uint256(amount, 0)
+    uint256_check(amount_uint256)
+
     # Check for maximum whitelist mint per user
     let (prev_mints: felt) = _wl_mints.read(caller)
     with_attr error_message("Amount exceeds max whitelist mint amount"):
-        assert_nn_le(prev_mints+amount, MAX_WL_MINT)
+        let (user_mint_count: Uint256) = SafeUint256.add(
+            Uint256(prev_mints,0), amount_uint256)
+
+        let (le_peruser_wl) = uint256_le(
+            user_mint_count, Uint256(MAX_WL_MINT, 0))
+        assert le_max_wl = 1
     end
     _wl_mints.write(caller, prev_mints+amount)
 
     # Check for total wl amount
     let (total_wl_mints: felt) = _total_wl_mints.read()
     with_attr error_message("All NFTs that were allocated for wl period has been minted"):
-        assert_nn_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
+        let (total_mint_count: Uint256) = SafeUint256.add(
+            Uint256(total_wl_mints, 0), amount_uint256)
+
+        let (le_total_wl) = uint256_le(
+            total_mint_count, Uint256(TOTAL_WL_AMOUNT, 0))
+        assert le_total_wl = 1
     end
     _total_wl_mints.write(total_wl_mints + amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_nn_le(last_id + amount, MAX_SUPPLY)
+        let (total_mints: Uint256) = SafeUint256.add(
+            Uint256(last_id, 0), amount_uint256)
+        
+        let (le_total_mint) = uint256_le(
+            total_mints, Uint256(MAX_SUPPLY), 0)
+        assert le_total_mint = 1
     end
     
     # Take mint fee
@@ -603,17 +624,30 @@ func public_mint{
         assert public_active = TRUE
     end
 
+    let (local amount_uint256: Uint256) = Uint256(amount, 0)
+    uint256_check(amount_uint256)
+
     # Check for maximum public mint per user
     let (prev_mints: felt) = _public_mints.read(caller)
     with_attr error_message("Amount exceeds max public mint amount"):
-        assert_nn_le(prev_mints+amount, MAX_PUBLIC_MINT)
+        let (user_mint_count: Uint256) = SafeUint256.add(
+            Uint256(prev_mints,0), amount_uint256)
+
+        let (le_peruser_pub) = uint256_le(
+            user_mint_count, Uint256(MAX_PUBLIC_MINT, 0))
+        assert le_max_pub = 1
     end
     _public_mints.write(caller, prev_mints+amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        assert_nn_le(last_id + amount, MAX_SUPPLY)
+        let (total_mints: Uint256) = SafeUint256.add(
+            Uint256(last_id, 0), amount_uint256)
+        
+        let (le_total_mint) = uint256_le(
+            total_mints, Uint256(MAX_SUPPLY), 0)
+        assert le_total_mint = 1
     end
     
     # Take mint fee
@@ -671,12 +705,15 @@ func change_name{
 
     # Get changing name price
     let (name_price: felt) = _name_price.read()
-    IERC20.transferFrom(
+    let (success: felt) = IERC20.transferFrom(
         contract_address=ETH_ADDRESS,
         sender=caller,
         recipient=this_address,
         amount=Uint256(name_price, 0)
     )
+    with_attr error_message("ERC20 transfer failed"):
+        assert success = 1
+    end
 
     _names.write(id, new_name)
     named.emit(tokenId=id,name=new_name)
