@@ -37,10 +37,6 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 ################################ TESTNET CONFIG ################################
 
 @storage_var
-func __t_eth_addr() -> (address):
-end
-
-@storage_var
 func _base_uri() -> (base_uri : felt):
 end
 
@@ -568,7 +564,7 @@ func wl_mint{
         contract_address=ETH_ADDRESS,
         sender=caller,
         recipient=this_address,
-        amount=Uint256(1, 0)
+        amount=Uint256(amount * mint_fee, 0)
     )
     with_attr error_message("ERC20 transfer failed"):
         assert success = 1
@@ -746,17 +742,6 @@ end
 
 ## Owner Functions
 ################################################################################
-
-@external
-func __t_set_eth_addr{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr
-}(a: felt):
-    Ownable.assert_only_owner()
-    __t_eth_addr.write(a)
-    return ()
-end
 
 @external
 func set_base_uri{
@@ -944,7 +929,7 @@ func withdraw{
     with_attr error_message("Transfer failed"):
         let (success: felt) = IERC20.transfer(
             contract_address=ETH_ADDRESS,
-            recipient=caller_address,
+            recipient=team_receiver,
             amount=balance)
         assert success = 1
     end
