@@ -7,15 +7,14 @@
 
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin, HashBuiltin
 from starkware.cairo.common.uint256 import (
-    Uint256, uint256_unsigned_div_rem, uint256_mul, uint256_le, uint256_check) 
+    Uint256, uint256_unsigned_div_rem, uint256_mul) 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.math import (
-    assert_nn_le, assert_not_zero, unsigned_div_rem)
+    assert_nn, assert_nn_le, assert_not_zero, unsigned_div_rem)
 from starkware.starknet.common.syscalls import (
     get_caller_address, get_contract_address)
 
-from openzeppelin.security.safemath.library import SafeUint256
 from openzeppelin.token.erc721.library import ERC721
 from openzeppelin.introspection.erc165.library import ERC165
 from openzeppelin.access.ownable.library import Ownable
@@ -37,12 +36,14 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 
 ################################ TESTNET CONFIG ################################
 
-@storage_var
-func _team_receiver() -> (team_receiver : felt):
-end
-
+## @notice Base URI of the token
 @storage_var
 func _base_uri() -> (base_uri : felt):
+end
+
+## @notice Account who gets team rewards
+@storage_var
+func _team_receiver() -> (account: felt):
 end
 
 ## @notice Stores last minted ID
@@ -142,8 +143,8 @@ func constructor{
     ERC165.register_interface(ERC2981_ID)
     Ownable.initializer(owner)
 
-    _base_uri.write(base_uri)
     _team_receiver.write(team_receiver)
+    _base_uri.write(base_uri)
 
     # Mint team supply
     tempvar end_id: felt = TEAM_SUPPLY + START_ID
@@ -159,13 +160,11 @@ end
 ################################################################################
 
 @event
-func minted(
-    tokenId: Uint256, address: felt):
+func minted(tokenId: Uint256, address: felt):
 end
 
 @event
-func named(
-    tokenId: Uint256, name: felt):
+func named(tokenId: Uint256, name: felt):
 end
 
 ## Getters
@@ -525,6 +524,9 @@ func wl_mint{
     let (local caller: felt) = get_caller_address()
     let (local this_address: felt) = get_contract_address()
 
+    # Check amount's bound
+    assert_nn(amount)
+
     with_attr error_message("Not the right caller"):
         assert caller = leaf
     end
@@ -543,44 +545,24 @@ func wl_mint{
         assert proof_valid = TRUE
     end
 
-    # We're going with the safest route which is wrapping amount in Uint256
-    # and using OZ SafeMath for Uint256
-    let (local amount_uint256) = Uint256(amount, 0)
-    uint256_check(amount_uint256)
-
     # Check for maximum whitelist mint per user
     let (prev_mints: felt) = _wl_mints.read(caller)
     with_attr error_message("Amount exceeds max whitelist mint amount"):
-        let (user_mint_count: Uint256) = SafeUint256.add(
-            Uint256(prev_mints,0), amount_uint256)
-
-        let (le_peruser_wl) = uint256_le(
-            user_mint_count, Uint256(MAX_WL_MINT, 0))
-        assert le_max_wl = 1
+        assert_nn_le(prev_mints+amount, MAX_WL_MINT)
     end
     _wl_mints.write(caller, prev_mints+amount)
 
     # Check for total wl amount
     let (total_wl_mints: felt) = _total_wl_mints.read()
     with_attr error_message("All NFTs that were allocated for wl period has been minted"):
-        let (total_mint_count: Uint256) = SafeUint256.add(
-            Uint256(total_wl_mints, 0), amount_uint256)
-
-        let (le_total_wl) = uint256_le(
-            total_mint_count, Uint256(TOTAL_WL_AMOUNT, 0))
-        assert le_total_wl = 1
+        assert_nn_le(amount + total_wl_mints, TOTAL_WL_AMOUNT)
     end
     _total_wl_mints.write(total_wl_mints + amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        let (total_mints: Uint256) = SafeUint256.add(
-            Uint256(last_id, 0), amount_uint256)
-        
-        let (le_total_mint) = uint256_le(
-            total_mints, Uint256(MAX_SUPPLY), 0)
-        assert le_total_mint = 1
+        assert_nn_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -622,36 +604,26 @@ func public_mint{
     let (local caller: felt) = get_caller_address()
     let (local this_address: felt) = get_contract_address()
 
+    # Check amount's bound
+    assert_nn(amount)
+
     # Check for whitelist period
     with_attr error_message("Public mint period not active"):
         let (public_active: felt) = _public_mint_active.read()
         assert public_active = TRUE
     end
 
-    let (local amount_uint256: Uint256) = Uint256(amount, 0)
-    uint256_check(amount_uint256)
-
     # Check for maximum public mint per user
     let (prev_mints: felt) = _public_mints.read(caller)
     with_attr error_message("Amount exceeds max public mint amount"):
-        let (user_mint_count: Uint256) = SafeUint256.add(
-            Uint256(prev_mints,0), amount_uint256)
-
-        let (le_peruser_pub) = uint256_le(
-            user_mint_count, Uint256(MAX_PUBLIC_MINT, 0))
-        assert le_max_pub = 1
+        assert_nn_le(prev_mints+amount, MAX_PUBLIC_MINT)
     end
     _public_mints.write(caller, prev_mints+amount)
 
     # Check for max supply
     let (last_id: felt) = _last_id.read()
     with_attr error_message("Amount exceeds max supply"):
-        let (total_mints: Uint256) = SafeUint256.add(
-            Uint256(last_id, 0), amount_uint256)
-        
-        let (le_total_mint) = uint256_le(
-            total_mints, Uint256(MAX_SUPPLY), 0)
-        assert le_total_mint = 1
+        assert_nn_le(last_id + amount, MAX_SUPPLY)
     end
     
     # Take mint fee
@@ -963,11 +935,11 @@ func withdraw{
 
     let (local this_address: felt) = get_contract_address()
     let (local caller_address: felt) = get_caller_address()
-    let (team_receiver: felt) = _team_receiver.read()
     let (balance: Uint256) = IERC20.balanceOf(
         contract_address=ETH_ADDRESS,
         account=this_address)
 
+    let (team_receiver: felt) = _team_receiver.read()
     with_attr error_message("Transfer failed"):
         let (success: felt) = IERC20.transfer(
             contract_address=ETH_ADDRESS,

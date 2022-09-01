@@ -658,17 +658,6 @@
     {
         "inputs": [
             {
-                "name": "a",
-                "type": "felt"
-            }
-        ],
-        "name": "__t_set_eth_addr",
-        "outputs": [],
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
                 "name": "new_base_uri",
                 "type": "felt"
             }
@@ -680,6 +669,12 @@
     {
         "inputs": [],
         "name": "enable_burn",
+        "outputs": [],
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "enable_naming",
         "outputs": [],
         "type": "function"
     },
