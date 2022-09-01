@@ -37,9 +37,12 @@ const ETH_ADDRESS = 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e
 ################################ TESTNET CONFIG ################################
 
 @storage_var
-func _base_uri() -> (base_uri : felt):
+func _team_receiver() -> (team_receiver : felt):
 end
 
+@storage_var
+func _base_uri() -> (base_uri : felt):
+end
 
 ## @notice Stores last minted ID
 @storage_var
@@ -139,6 +142,7 @@ func constructor{
     Ownable.initializer(owner)
 
     _base_uri.write(base_uri)
+    _team_receiver.write(team_receiver)
 
     # Mint team supply
     tempvar end_id: felt = TEAM_SUPPLY + START_ID
@@ -922,6 +926,7 @@ func withdraw{
 
     let (local this_address: felt) = get_contract_address()
     let (local caller_address: felt) = get_caller_address()
+    let (team_receiver: felt) = _team_receiver.read()
     let (balance: Uint256) = IERC20.balanceOf(
         contract_address=ETH_ADDRESS,
         account=this_address)
