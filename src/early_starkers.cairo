@@ -1061,39 +1061,3 @@ func __write_string{
     return __write_string(offset=offset+1)
 end
 
-## After Reset
-################################################################################
-
-@external
-func airdrop_tokens{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-}(new_addresses_len: felt, new_addresses: felt*, start_id: felt):
-    Ownable.assert_only_owner() # [start_id, start_id + new_adresses-len)
-    let (last_id: felt) = _last_id.read()
-    if start_id - last_id == new_addresses_len:
-        _last_id.write(last_id + new_addresses_len)
-        return()
-    end
-    let next_id: Uint256 = Uint256(start_id, 0)
-    ERC721._mint([new_addresses + start_id - last_id], next_id) 
-    minted.emit(tokenId=next_id, address=[new_addresses + start_id - last_id])
-    return airdrop_tokens(new_addresses_len, new_addresses, start_id + 1)
-end
-
-@external
-func restore_names{
-    syscall_ptr: felt*,
-    pedersen_ptr: HashBuiltin*,
-    range_check_ptr,
-}(names_len: felt, names: felt*, start_id: felt):
-    Ownable.assert_only_owner()
-    if start_id - START_ID == names_len:
-        return()
-    end
-    let next_id: Uint256 = Uint256(start_id, 0)
-    _names.write(next_id, [names + start_id - START_ID])
-    named.emit(tokenId=next_id, name=[names + start_id - START_ID])
-    return restore_names(names_len, names, start_id + 1)
-end
